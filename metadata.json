@@ -1,0 +1,6 @@
+{
+  "name": "jever",
+  "description": "Tidsskrift for Tanker & Teknologisk Ro. Et taktilt, sobert magasin for essays, on-device AI og digital arkitektur.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
