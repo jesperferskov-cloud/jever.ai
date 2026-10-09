@@ -171,7 +171,7 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
 
               {/* Vector Artwork Header Frame */}
               <div className="w-full h-48 sm:h-64 rounded-2xl bg-[#1e1a17] border border-white/5 overflow-hidden mb-12 relative">
-                <VectorArtwork caption={post.hardware} />
+                <VectorArtwork post={post} caption={post.hardware} />
               </div>
 
               {/* Long-form Article Body Prose */}

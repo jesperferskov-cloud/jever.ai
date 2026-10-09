@@ -2,12 +2,13 @@ import { BlogPost } from '../types/blog';
 
 export const BLOG_POSTS: BlogPost[] = [
   {
-    id: 'kunsten-at-finde-ro',
+    id: '001',
     number: '001',
     title: 'Kunsten at finde ro i en digital tidsalder',
-    verticalLabel: '001 - KUNSTEN AT FINDE RO',
+    verticalLabel: '001 — KUNSTEN AT FINDE RO',
     kicker: 'BLOG & TANKER',
     slug: 'kunsten-at-finde-ro',
+    summary: 'Velkommen til jever. En anderledes blog, hvor vi udforsker det, der rører sig – skrevet med nærvær.',
     excerpt: 'Velkommen til jever. En anderledes blog, hvor vi udforsker det, der rører sig – skrevet med nærvær.',
     category: 'Filosofi',
     readingTime: '6 min',
@@ -15,9 +16,9 @@ export const BLOG_POSTS: BlogPost[] = [
     date: '24. feb 2026',
     tags: ['Nærvær', 'Ro', 'Digital Arkitektur'],
     themeAccent: '#98a892',
-    panelColor: '#25201c',
+    panelColor: '#2d2621', // Dark espresso when inactive
     panelTextColor: '#ece7dc',
-    artworkType: 'dunes',
+    artworkType: 'dunes', // Sage (#98a892) & Sand (#e5cc9c) wave illustration
     featured: true,
     content: `Velkommen til jever. En anderledes blog, hvor vi udforsker det, der rører sig – skrevet med nærvær.
 
@@ -26,12 +27,13 @@ I en verden fyldt med støj, notifikationer og endeløse feeds, er evnen til at 
 Vi undersøger skæringspunktet mellem menneske, formsprog og uafhængig teknologi. Når vi fjerner webstøjen, åbner der sig et rum for fordybelse og eftertanke. Det er vores overbevisning, at de mest holdbare ideer opstår i stilhed.`
   },
   {
-    id: 'fremtidens-arbejdsliv',
+    id: '002',
     number: '002',
     title: 'Fremtidens Arbejdsliv: Mennesket før Maskinen',
-    verticalLabel: '002 - FREMTIDENS ARBEJDSLIV',
+    verticalLabel: '002 — FREMTIDENS ARBEJDSLIV',
     kicker: 'ARBEJDSLIV & SAMFUND',
     slug: 'fremtidens-arbejdsliv',
+    summary: 'Hvordan skaber vi meningsfulde rammer for arbejdet, når kunstig intelligens overtager rutinerne? En undersøgelse af autonomi og dyb fokus.',
     excerpt: 'Hvordan skaber vi meningsfulde rammer for arbejdet, når kunstig intelligens overtager rutinerne? En undersøgelse af autonomi og dyb fokus.',
     category: 'Essays',
     readingTime: '5 min',
@@ -39,20 +41,21 @@ Vi undersøger skæringspunktet mellem menneske, formsprog og uafhængig teknolo
     date: '18. feb 2026',
     tags: ['Fremtid', 'Arbejde', 'Fokus'],
     themeAccent: '#e5cc9c',
-    panelColor: '#e5cc9c', // Warm sand / wheat tint
-    panelTextColor: '#382e20',
+    panelColor: '#e5cc9c', // Warm Wheat strip
+    panelTextColor: '#382e20', // Dark espresso typography
     artworkType: 'contours',
     content: `Arbejdslivet er under forandring. Hvor det industrielle paradigme målte værdi i timer foran en skærm, måler fremtidens arbejde værdi i dybde, empati og dømmekraft.
 
 Når algoritmer og computere overtager de mekaniske processer, genopdager vi det, der gør os menneskelige: evnen til at stille de rigtige spørgsmål og lytte til stilheden mellem svarene.`
   },
   {
-    id: 'design-og-mennesker',
+    id: '003',
     number: '003',
     title: 'Design & Mennesker: Taktil Æstetik',
-    verticalLabel: '003 - DESIGN & MENNESKER',
+    verticalLabel: '003 — DESIGN & MENNESKER',
     kicker: 'FORM & FORMÅL',
     slug: 'design-og-mennesker',
+    summary: 'Hvorfor fysiske teksturer, varme jordfarver og rolige kontraster genopretter vores forhold til den digitale grænseflade.',
     excerpt: 'Hvorfor fysiske teksturer, varme jordfarver og rolige kontraster genopretter vores forhold til den digitale grænseflade.',
     category: 'Arkitektur',
     readingTime: '7 min',
@@ -60,20 +63,21 @@ Når algoritmer og computere overtager de mekaniske processer, genopdager vi det
     date: '12. feb 2026',
     tags: ['Design', 'Æstetik', 'Taktil'],
     themeAccent: '#c98a75',
-    panelColor: '#c98a75', // Muted terracotta / dusty rose tint
-    panelTextColor: '#2e1a14',
+    panelColor: '#c98a75', // Muted Terracotta strip
+    panelTextColor: '#2e1a14', // Deep rust/espresso typography
     artworkType: 'monolith',
     content: `Design handler ikke blot om, hvordan noget ser ud; det handler om, hvordan det føles i sindet.
 
 En grænseflade dyppet i varme espressotoner, tørret ler og afdæmpet salvie inviterer til ro. Det er en modgift til den sterile, blåhvide plasticæstetik, der har domineret softwareverdenen i årtier.`
   },
   {
-    id: 'natur-og-teknologi',
+    id: '004',
     number: '004',
     title: 'Natur & Teknologi: Det Symbiotiske Skrivebord',
-    verticalLabel: '004 - NATUR & TEKNOLOGI',
-    kicker: 'SYMBOSE & SILICIUM',
+    verticalLabel: '004 — NATUR & TEKNOLOGI',
+    kicker: 'SYMBIOSE & SILICIUM',
     slug: 'natur-og-teknologi',
+    summary: 'Hvad sker der, når computere opererer lokalt og lydløst som en forlængelse af det naturlige miljø uden konstant afhængighed af skyen?',
     excerpt: 'Hvad sker der, når computere opererer lokalt og lydløst som en forlængelse af det naturlige miljø uden konstant afhængighed af skyen?',
     category: 'On-Device AI',
     readingTime: '8 min',
@@ -81,8 +85,8 @@ En grænseflade dyppet i varme espressotoner, tørret ler og afdæmpet salvie in
     date: '04. feb 2026',
     tags: ['Natur', 'Zero-Cloud', 'Silicium'],
     themeAccent: '#98a892',
-    panelColor: '#98a892', // Sage green tint
-    panelTextColor: '#1e281b',
+    panelColor: '#98a892', // Sage Green strip
+    panelTextColor: '#1e281b', // Forest espresso typography
     artworkType: 'neural',
     content: `Den personlige computer blev oprindeligt beskrevet som en cykel for sindet. I dag er den for mange blevet en digital støjgenerator.
 

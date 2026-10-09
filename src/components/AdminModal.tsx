@@ -1,7 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Lock, Key, Mail, Send, Check, Users, FileText, Server, LogOut, Plus, Sparkles } from 'lucide-react';
-import { Subscriber, BlogPost } from '../types/blog';
+import {
+  X,
+  Lock,
+  Key,
+  Mail,
+  Users,
+  FileText,
+  Settings,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Terminal,
+  LogOut,
+  Layers,
+  Edit3,
+  Download,
+  Send,
+  Check,
+  ArrowLeft,
+} from 'lucide-react';
+import { Subscriber, BlogPost, SiteSettings, DEFAULT_SITE_SETTINGS } from '../types/blog';
+import { PostEditor } from './admin/PostEditor';
+import { PostLibrary } from './admin/PostLibrary';
+import { SiteSettingsPanel } from './admin/SiteSettingsPanel';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -9,8 +32,30 @@ interface AdminModalProps {
   subscribers: Subscriber[];
   onAddSubscriber: (email: string) => void;
   posts: BlogPost[];
-  onAddPost?: (post: BlogPost) => void;
+  onSavePost: (post: BlogPost, isPublish: boolean) => void;
+  onDeletePost: (postId: string) => void;
+  onToggleStatus: (postId: string) => void;
+  onReorderPosts: (reordered: BlogPost[]) => void;
+  siteSettings: SiteSettings;
+  onSaveSiteSettings: (settings: SiteSettings) => void;
 }
+
+interface AdminCredentials {
+  password: string;
+  authorEmail: string;
+  updatedAt: string;
+}
+
+const DEFAULT_CREDENTIALS: AdminCredentials = {
+  password: 'jever2026',
+  authorEmail: 'jesper.ferskov@gmail.com',
+  updatedAt: '2026-02-24',
+};
+
+const STORAGE_KEY = 'jever_admin_credentials_v1';
+const SESSION_KEY = 'jever_admin_authenticated';
+
+type AdminTab = 'editor' | 'library' | 'settings' | 'subscribers';
 
 export const AdminModal: React.FC<AdminModalProps> = ({
   isOpen,
@@ -18,30 +63,61 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   subscribers,
   onAddSubscriber,
   posts,
-  onAddPost,
+  onSavePost,
+  onDeletePost,
+  onToggleStatus,
+  onReorderPosts,
+  siteSettings,
+  onSaveSiteSettings,
 }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<'password' | 'magic'>('password');
-  const [password, setPassword] = useState('');
-  const [magicEmail, setMagicEmail] = useState('');
+  // Credentials state persisted in localStorage
+  const [credentials, setCredentials] = useState<AdminCredentials>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      // ignore
+    }
+    return DEFAULT_CREDENTIALS;
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem(SESSION_KEY) === 'true';
+  });
+
+  // Login form state
+  const [activeLoginTab, setActiveLoginTab] = useState<'password' | 'magic'>('password');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Studio tabs once authenticated
-  const [studioTab, setStudioTab] = useState<'subscribers' | 'compose' | 'system'>('subscribers');
+  // Command Tower Active Sub-Tab:
+  // "Skriv & Rediger" (Post Editor) | "Bibliotek" (Post Library / CRUD) | "Indstillinger" (Site Text & Admin Settings)
+  const [activeTab, setActiveTab] = useState<AdminTab>('library');
+
+  // Currently editing post (if selected from Library)
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+
+  // Subscribers state (bonus tab)
   const [newSubEmail, setNewSubEmail] = useState('');
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
 
-  // New post draft state
-  const [draftTitle, setDraftTitle] = useState('');
-  const [draftCategory, setDraftCategory] = useState<BlogPost['category']>('On-Device AI');
-  const [draftHardware, setDraftHardware] = useState('M4 Pro • 48GB');
-  const [draftExcerpt, setDraftExcerpt] = useState('');
-  const [draftContent, setDraftContent] = useState('');
-  const [postCreatedAlert, setPostCreatedAlert] = useState(false);
+  // Close on Escape if inside modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
+  // Handle Login
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -49,11 +125,68 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
     setTimeout(() => {
       setIsSubmitting(false);
-      // For preview purposes, accept any password or empty to simulate logged in
-      setIsAuthenticated(true);
-    }, 450);
+
+      if (activeLoginTab === 'password') {
+        if (loginPassword === credentials.password || loginPassword === 'jever2026') {
+          setIsAuthenticated(true);
+          sessionStorage.setItem(SESSION_KEY, 'true');
+          setLoginPassword('');
+          setAuthError('');
+        } else {
+          setAuthError('Ugyldig adgangskode. Prøv "jever2026" eller din opdaterede kode.');
+        }
+      } else {
+        if (loginEmail.trim().toLowerCase() === credentials.authorEmail.toLowerCase()) {
+          setIsAuthenticated(true);
+          sessionStorage.setItem(SESSION_KEY, 'true');
+          setLoginEmail('');
+          setAuthError('');
+        } else {
+          setAuthError(`E-mail matcher ikke godkendt forfatter (${credentials.authorEmail}).`);
+        }
+      }
+    }, 300);
   };
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem(SESSION_KEY);
+    setActiveTab('library');
+    setEditingPost(null);
+  };
+
+  // Update password & author email
+  const handleUpdatePassword = (newPass: string, newEmail: string): boolean => {
+    try {
+      const updated: AdminCredentials = {
+        password: newPass,
+        authorEmail: newEmail,
+        updatedAt: new Date().toLocaleDateString('da-DK'),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      setCredentials(updated);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const handleResetFactoryPassword = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CREDENTIALS));
+      setCredentials(DEFAULT_CREDENTIALS);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Switch to Editor with post data loaded
+  const handleEditPost = (post: BlogPost) => {
+    setEditingPost(post);
+    setActiveTab('editor');
+  };
+
+  // Add Subscriber
   const handleAddSub = (e: React.FormEvent) => {
     e.preventDefault();
     if (newSubEmail && newSubEmail.includes('@')) {
@@ -62,412 +195,423 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  // Export Subscribers
+  const handleExportSubscribers = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(subscribers, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `jever-subscribers-${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  // Simulate Dispatch
   const handleSimulateDispatch = () => {
     setDispatchStatus('Orkestrerer lokal Resend SMTP via mailService.js...');
     setTimeout(() => {
-      setDispatchStatus(`Sendt til ${subscribers.length} modtagere fra lokal disk!`);
-      setTimeout(() => setDispatchStatus(null), 4000);
-    }, 1200);
-  };
-
-  const handlePublishDraft = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!draftTitle.trim() || !onAddPost) return;
-
-    const newPost: BlogPost = {
-      id: `draft-${Date.now()}`,
-      number: String(posts.length + 1).padStart(3, '0'),
-      title: draftTitle,
-      verticalLabel: `${String(posts.length + 1).padStart(3, '0')} — ${draftTitle.toUpperCase()}`,
-      kicker: 'Nyt Udgivet Essay',
-      slug: draftTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      excerpt: draftExcerpt || 'Et nyt sobert essay forfattet direkte i det lokale skriveværksted.',
-      content: draftContent || 'Her starter artiklen skrevet i rå Markdown...',
-      category: draftCategory,
-      readingTime: '4 min',
-      hardware: draftHardware,
-      date: 'Netop nu',
-      tags: ['Lokal inferens', 'Zero-Cloud'],
-      themeAccent: '#c26d48',
-      panelColor: '#dfc99d',
-      panelTextColor: '#201d1a',
-      artworkType: 'contours',
-    };
-
-    onAddPost(newPost);
-    setPostCreatedAlert(true);
-    setDraftTitle('');
-    setDraftExcerpt('');
-    setDraftContent('');
-    setTimeout(() => setPostCreatedAlert(false), 3000);
+      setDispatchStatus(`Udsendt til ${subscribers.length} modtagere fra disk (/content/subscribers.json)`);
+      setTimeout(() => setDispatchStatus(null), 4500);
+    }, 1100);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#161310]/85 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-[#161310]/90 backdrop-blur-md overflow-y-auto">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        initial={{ opacity: 0, scale: 0.97, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-2xl bg-[#25201c] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl text-[#ece7dc] overflow-hidden"
+        exit={{ opacity: 0, scale: 0.97, y: 15 }}
+        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-5xl bg-[#25201c] border border-white/10 rounded-3xl p-5 sm:p-8 shadow-2xl text-[#ece7dc] my-auto overflow-hidden max-h-[94vh] flex flex-col"
       >
-        {/* Ambient Top Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-24 bg-[#c98a75]/10 blur-2xl pointer-events-none" />
+        {/* Subtle Ambient Top Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-[#c98a75]/10 blur-3xl pointer-events-none" />
 
-        {/* Close Button */}
+        {/* 1. Discrete "Luk Kontroltårn" (Exit / Back to Site) floating circular button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl text-[#a8a29e] hover:text-[#f5f2eb] hover:bg-white/5 transition-colors cursor-pointer"
+          aria-label="Luk Kontroltårn"
+          title="Luk Kontroltårn (Tilbage til sitet)"
+          className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1e1a17] hover:bg-[#2c2622] border border-white/10 hover:border-white/25 text-[#b8b1a9] hover:text-[#ece7dc] shadow-xl flex items-center justify-center transition-all cursor-pointer z-30 group"
         >
-          <X className="w-4 h-4" />
+          <X className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:rotate-90 duration-300" />
+          <span className="sr-only">Luk Kontroltårn</span>
         </button>
 
         {!isAuthenticated ? (
-          /* GHOST AUTH LOGIN FORM */
-          <div>
-            <div className="flex items-center gap-2 mb-2 text-xs font-mono text-[#c26d48]">
+          /* ========================================================
+             1. GHOST ADMIN AUTHENTICATION GATE
+             ======================================================== */
+          <div className="max-w-xl mx-auto py-8 w-full">
+            <div className="flex items-center gap-2 mb-3 text-xs font-mono text-[#c98a75]">
               <Lock className="w-3.5 h-3.5" />
-              <span>GHOST AUTH · PRIVAT ADGANG</span>
+              <span>GHOST AUTH · KONTROLTÅRN ADGANG</span>
             </div>
-            <h3 className="font-serif text-2xl sm:text-3xl font-normal text-[#f5f2eb] mb-2">
-              jever // terminal adgang
+
+            <h3 className="font-serif text-3xl sm:text-4xl font-normal text-[#f5f2eb] mb-2 tracking-tight">
+              jever // Kontroltårnet
             </h3>
-            <p className="text-xs sm:text-sm text-[#a8a29e] mb-6">
-              Dette rum er skjult for almindelige besøgende. Indtast adgangskode for at tilgå lokal disk-synkronisering og subscribers.json.
+            <p className="text-xs sm:text-sm text-[#b8b1a9] mb-6 font-light leading-relaxed">
+              Autentificer for at åbne det lokale redaktionelle kontroltårn, forfatte essays med live Bento-preview, administrere biblioteket og redigere sitets tekster.
             </p>
 
             {/* Tab selection */}
-            <div className="flex items-center gap-1 p-1 bg-[#141211] rounded-xl border border-white/5 mb-6 max-w-xs">
+            <div className="flex items-center gap-1 p-1 bg-[#1e1a17] rounded-xl border border-white/5 mb-6 max-w-xs">
               <button
-                onClick={() => setActiveTab('password')}
+                type="button"
+                onClick={() => {
+                  setActiveLoginTab('password');
+                  setAuthError('');
+                }}
                 className={`flex-1 py-1.5 text-xs rounded-lg transition-colors cursor-pointer ${
-                  activeTab === 'password'
-                    ? 'bg-[#24211e] text-[#f5f2eb] font-medium'
+                  activeLoginTab === 'password'
+                    ? 'bg-[#2a2420] text-[#f5f2eb] font-medium shadow-xs'
                     : 'text-[#a8a29e] hover:text-[#f5f2eb]'
                 }`}
               >
                 Adgangskode / PIN
               </button>
               <button
-                onClick={() => setActiveTab('magic')}
+                type="button"
+                onClick={() => {
+                  setActiveLoginTab('magic');
+                  setAuthError('');
+                }}
                 className={`flex-1 py-1.5 text-xs rounded-lg transition-colors cursor-pointer ${
-                  activeTab === 'magic'
-                    ? 'bg-[#24211e] text-[#f5f2eb] font-medium'
+                  activeLoginTab === 'magic'
+                    ? 'bg-[#2a2420] text-[#f5f2eb] font-medium shadow-xs'
                     : 'text-[#a8a29e] hover:text-[#f5f2eb]'
                 }`}
               >
-                Magisk Link
+                Forfatter E-mail
               </button>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
-              {activeTab === 'password' ? (
+              {activeLoginTab === 'password' ? (
                 <div>
-                  <label className="block text-xs font-mono text-[#a8a29e] mb-1.5">
-                    Pinkode / Master Token
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-mono text-[#a8a29e]">
+                      Pinkode / Master Password
+                    </label>
+                    <span className="text-[11px] font-mono text-[#a8a29e]/60">
+                      Standard: <code className="text-[#e5cc9c]">jever2026</code>
+                    </span>
+                  </div>
                   <div className="relative">
                     <Key className="w-4 h-4 text-[#a8a29e] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Indtast adgangskode eller PIN..."
+                      type={showPassword ? 'text' : 'password'}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="Indtast adgangskode..."
                       autoFocus
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#141211] border border-white/10 text-sm text-[#f5f2eb] placeholder-[#a8a29e]/40 focus:outline-none focus:border-[#c26d48] transition-colors"
+                      required
+                      className="w-full pl-10 pr-10 py-3 rounded-xl bg-[#1e1a17] border border-white/10 text-sm text-[#f5f2eb] placeholder-[#a8a29e]/40 focus:outline-none focus:border-[#c98a75] transition-colors"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#a8a29e] hover:text-[#f5f2eb]"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-mono text-[#a8a29e] mb-1.5">
-                    Forfatterens E-mail
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-mono text-[#a8a29e]">
+                      Forfatterens Godkendte E-mail
+                    </label>
+                    <span className="text-[11px] font-mono text-[#a8a29e]/60">
+                      Standard: <code className="text-[#e5cc9c]">{credentials.authorEmail}</code>
+                    </span>
+                  </div>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-[#a8a29e] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="email"
-                      value={magicEmail}
-                      onChange={(e) => setMagicEmail(e.target.value)}
-                      placeholder="jesper.ferskov@gmail.com"
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#141211] border border-white/10 text-sm text-[#f5f2eb] placeholder-[#a8a29e]/40 focus:outline-none focus:border-[#c26d48] transition-colors"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder={credentials.authorEmail}
+                      autoFocus
+                      required
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#1e1a17] border border-white/10 text-sm text-[#f5f2eb] placeholder-[#a8a29e]/40 focus:outline-none focus:border-[#c98a75] transition-colors"
                     />
                   </div>
                 </div>
               )}
 
               {authError && (
-                <div className="text-xs text-rose-400 font-mono">
-                  {authError}
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{authError}</span>
                 </div>
               )}
 
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="px-5 py-2.5 rounded-xl text-xs text-[#a8a29e] hover:text-[#f5f2eb] hover:bg-white/5 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setLoginPassword('jever2026');
+                    setLoginEmail(credentials.authorEmail);
+                  }}
+                  className="text-xs text-[#a8a29e] hover:text-[#e5cc9c] underline underline-offset-4 cursor-pointer font-sans"
                 >
-                  Annuller
+                  Indsæt standardadgang
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2.5 rounded-xl bg-[#f3efe6] hover:bg-[#eae4d7] text-[#141211] font-medium text-xs transition-all shadow-md cursor-pointer whitespace-nowrap"
-                >
-                  {isSubmitting ? 'Verificerer...' : 'Log ind'}
-                </button>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2.5 rounded-xl text-xs text-[#a8a29e] hover:text-[#f5f2eb] hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    Annuller
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 rounded-xl bg-[#ece7dc] hover:bg-[#ded8cc] text-[#1e1a17] font-medium text-xs transition-all shadow-md cursor-pointer whitespace-nowrap"
+                  >
+                    {isSubmitting ? 'Verificerer...' : 'Åbn Kontroltårn'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
         ) : (
-          /* AUTHENTICATED PUBLISHING STUDIO */
-          <div>
-            <div className="flex items-center justify-between pb-4 border-b border-[#2d2925] mb-5">
-              <div>
-                <div className="flex items-center gap-2 text-xs font-mono text-[#10b981]">
-                  <span className="w-2 h-2 rounded-full bg-[#10b981]" />
-                  <span>FORFATTER GODKENDT · LOKAL KONSOL</span>
+          /* ========================================================
+             2. AUTHENTICATED COMMAND TOWER (KONTROLTÅRNET)
+             ======================================================== */
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {/* Top Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10 pr-12">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#98a892]/20 border border-[#98a892]/40 flex items-center justify-center text-[#98a892]">
+                  <Terminal className="w-5 h-5" />
                 </div>
-                <h3 className="font-serif text-2xl font-normal text-[#f5f2eb]">
-                  Redaktionelt Værksted
-                </h3>
+                <div>
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-[#98a892]">
+                    <span className="w-2 h-2 rounded-full bg-[#98a892] animate-pulse" />
+                    <span>KONTROLTÅRN · SESSION AKTIV</span>
+                  </div>
+                  <h3 className="font-serif text-2xl font-normal text-[#f5f2eb] leading-tight">
+                    jever // Kontroltårnet
+                  </h3>
+                </div>
               </div>
 
-              <button
-                onClick={() => setIsAuthenticated(false)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[#a8a29e] hover:text-rose-400 bg-[#141211] border border-white/5 transition-colors cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Log ud</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs text-[#b8b1a9] hover:text-rose-400 bg-[#1e1a17] border border-white/5 hover:border-rose-400/30 transition-colors cursor-pointer"
+                  title="Afslut session og log ud"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Log ud</span>
+                </button>
+              </div>
             </div>
 
-            {/* Studio Navigation Tabs */}
-            <div className="flex items-center gap-2 mb-6">
+            {/* Sub-Navigation Tabs:
+                1. "Skriv & Rediger" (Post Editor)
+                2. "Bibliotek" (Post Library / CRUD)
+                3. "Indstillinger" (Site Text & Admin Settings)
+                + Bonus: "Abonnenter"
+            */}
+            <div className="flex items-center gap-1.5 p-1 bg-[#1e1a17] rounded-2xl border border-white/5 my-4 overflow-x-auto no-scrollbar shrink-0">
+              {/* Tab 1: Skriv & Rediger */}
               <button
-                onClick={() => setStudioTab('subscribers')}
-                className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors cursor-pointer ${
-                  studioTab === 'subscribers'
-                    ? 'bg-[#24211e] text-[#f5f2eb] border border-white/10'
+                type="button"
+                onClick={() => setActiveTab('editor')}
+                className={`px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'editor'
+                    ? 'bg-[#2a2420] text-[#f5f2eb] font-medium border border-white/10 shadow-xs'
                     : 'text-[#a8a29e] hover:text-[#f5f2eb]'
                 }`}
               >
-                <Users className="w-3.5 h-3.5" />
+                <Edit3 className="w-3.5 h-3.5 text-[#e5cc9c]" />
+                <span>Skriv &amp; Rediger</span>
+                {editingPost && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#e5cc9c]" />
+                )}
+              </button>
+
+              {/* Tab 2: Bibliotek */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('library')}
+                className={`px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'library'
+                    ? 'bg-[#2a2420] text-[#f5f2eb] font-medium border border-white/10 shadow-xs'
+                    : 'text-[#a8a29e] hover:text-[#f5f2eb]'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-[#98a892]" />
+                <span>Bibliotek ({posts.length})</span>
+              </button>
+
+              {/* Tab 3: Indstillinger */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className={`px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'settings'
+                    ? 'bg-[#2a2420] text-[#f5f2eb] font-medium border border-white/10 shadow-xs'
+                    : 'text-[#a8a29e] hover:text-[#f5f2eb]'
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5 text-[#c98a75]" />
+                <span>Indstillinger</span>
+              </button>
+
+              {/* Tab 4: Abonnenter */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscribers')}
+                className={`px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'subscribers'
+                    ? 'bg-[#2a2420] text-[#f5f2eb] font-medium border border-white/10 shadow-xs'
+                    : 'text-[#a8a29e] hover:text-[#f5f2eb]'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-[#b5aaa0]" />
                 <span>Abonnenter ({subscribers.length})</span>
               </button>
-
-              <button
-                onClick={() => setStudioTab('compose')}
-                className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors cursor-pointer ${
-                  studioTab === 'compose'
-                    ? 'bg-[#24211e] text-[#f5f2eb] border border-white/10'
-                    : 'text-[#a8a29e] hover:text-[#f5f2eb]'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Skriv Essay</span>
-              </button>
-
-              <button
-                onClick={() => setStudioTab('system')}
-                className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors cursor-pointer ${
-                  studioTab === 'system'
-                    ? 'bg-[#24211e] text-[#f5f2eb] border border-white/10'
-                    : 'text-[#a8a29e] hover:text-[#f5f2eb]'
-                }`}
-              >
-                <Server className="w-3.5 h-3.5" />
-                <span>Zero-Cloud Status</span>
-              </button>
             </div>
 
-            {/* TAB CONTENT: SUBSCRIBERS */}
-            {studioTab === 'subscribers' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-[#a8a29e]">
-                    Flad database: <code className="text-[#c26d48]">/content/subscribers.json</code>
-                  </span>
-                  <button
-                    onClick={handleSimulateDispatch}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#24211e] hover:bg-[#2d2925] border border-[#c26d48]/40 text-xs text-[#f5f2eb] cursor-pointer transition-colors"
-                  >
-                    <Send className="w-3.5 h-3.5 text-[#c26d48]" />
-                    <span>Udsend via Resend SMTP</span>
-                  </button>
-                </div>
+            {/* TAB CONTENTS (Scrollable area) */}
+            <div className="flex-1 overflow-y-auto pr-1 pb-4">
+              {/* 1. SKRIV & REDIGER */}
+              {activeTab === 'editor' && (
+                <PostEditor
+                  initialPost={editingPost}
+                  postsCount={posts.length}
+                  onSavePost={(post, isPublish) => {
+                    onSavePost(post, isPublish);
+                    if (editingPost) {
+                      setEditingPost(null);
+                    }
+                  }}
+                  onCancelEdit={() => setEditingPost(null)}
+                />
+              )}
 
-                {dispatchStatus && (
-                  <div className="p-3 rounded-xl bg-[#10b981]/10 border border-[#10b981]/30 text-xs text-[#10b981] flex items-center gap-2">
-                    <Check className="w-4 h-4 shrink-0" />
-                    <span>{dispatchStatus}</span>
+              {/* 2. BIBLIOTEK (CRUD) */}
+              {activeTab === 'library' && (
+                <PostLibrary
+                  posts={posts}
+                  onEditPost={handleEditPost}
+                  onDeletePost={onDeletePost}
+                  onToggleStatus={onToggleStatus}
+                  onReorderPosts={onReorderPosts}
+                  onCreateNew={() => {
+                    setEditingPost(null);
+                    setActiveTab('editor');
+                  }}
+                />
+              )}
+
+              {/* 3. INDSTILLINGER */}
+              {activeTab === 'settings' && (
+                <SiteSettingsPanel
+                  settings={siteSettings}
+                  onSaveSettings={onSaveSiteSettings}
+                  currentPasswordHash={credentials.password}
+                  onUpdatePassword={handleUpdatePassword}
+                  onResetFactoryPassword={handleResetFactoryPassword}
+                />
+              )}
+
+              {/* 4. ABONNENTER */}
+              {activeTab === 'subscribers' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
+                    <div>
+                      <h4 className="text-sm font-sans font-medium text-[#f5f2eb]">
+                        Abonnenter på jever
+                      </h4>
+                      <p className="text-xs text-[#b8b1a9] font-mono">
+                        Lagret lokalt: <code className="text-[#e5cc9c]">/content/subscribers.json</code>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleExportSubscribers}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1e1a17] hover:bg-white/5 border border-white/10 text-xs text-[#ece7dc] cursor-pointer transition-colors"
+                        title="Eksportér JSON fil"
+                      >
+                        <Download className="w-3.5 h-3.5 text-[#b8b1a9]" />
+                        <span>Eksportér JSON</span>
+                      </button>
+
+                      <button
+                        onClick={handleSimulateDispatch}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2a2420] hover:bg-[#342c27] border border-[#98a892]/40 text-xs text-[#f5f2eb] cursor-pointer transition-colors"
+                      >
+                        <Send className="w-3.5 h-3.5 text-[#98a892]" />
+                        <span>Udsend via SMTP</span>
+                      </button>
+                    </div>
                   </div>
-                )}
 
-                {/* Subscribers table list */}
-                <div className="rounded-xl border border-white/5 bg-[#141211] overflow-hidden max-h-52 overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#1a1816] text-[#a8a29e] font-mono border-b border-white/5">
-                      <tr>
-                        <th className="p-3">E-mail</th>
-                        <th className="p-3">Dato</th>
-                        <th className="p-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {subscribers.map((sub) => (
-                        <tr key={sub.id} className="text-[#f5f2eb]">
-                          <td className="p-3 font-mono">{sub.email}</td>
-                          <td className="p-3 text-[#a8a29e]">{sub.date}</td>
-                          <td className="p-3">
-                            <span className="inline-flex items-center gap-1 text-[11px] text-[#10b981]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
-                              {sub.status}
-                            </span>
-                          </td>
+                  {dispatchStatus && (
+                    <div className="p-3 rounded-xl bg-[#98a892]/20 border border-[#98a892]/40 text-xs text-[#98a892] flex items-center gap-2">
+                      <Check className="w-4 h-4 shrink-0" />
+                      <span>{dispatchStatus}</span>
+                    </div>
+                  )}
+
+                  {/* Subscribers table list */}
+                  <div className="rounded-2xl border border-white/5 bg-[#1e1a17] overflow-hidden max-h-64 overflow-y-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#25201c] text-[#a8a29e] font-mono border-b border-white/5">
+                        <tr>
+                          <th className="p-3">E-mail</th>
+                          <th className="p-3">Dato</th>
+                          <th className="p-3">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Add subscriber manually */}
-                <form onSubmit={handleAddSub} className="flex gap-2 pt-2">
-                  <input
-                    type="email"
-                    value={newSubEmail}
-                    onChange={(e) => setNewSubEmail(e.target.value)}
-                    placeholder="Tilføj modtager manuelt..."
-                    className="flex-1 px-3 py-2 rounded-xl bg-[#141211] border border-white/10 text-xs text-[#f5f2eb] placeholder-[#a8a29e]/50 focus:outline-none focus:border-[#c26d48]"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-xl bg-[#24211e] hover:bg-[#2d2925] border border-white/10 text-xs text-[#f5f2eb] cursor-pointer"
-                  >
-                    Tilføj
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* TAB CONTENT: COMPOSE POST */}
-            {studioTab === 'compose' && (
-              <form onSubmit={handlePublishDraft} className="space-y-3">
-                {postCreatedAlert && (
-                  <div className="p-3 rounded-xl bg-[#10b981]/10 border border-[#10b981]/30 text-xs text-[#10b981] flex items-center gap-2">
-                    <Check className="w-4 h-4 shrink-0" />
-                    <span>Essay tilføjet til oversigten!</span>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {subscribers.map((sub) => (
+                          <tr key={sub.id} className="text-[#f5f2eb]">
+                            <td className="p-3 font-mono">{sub.email}</td>
+                            <td className="p-3 text-[#a8a29e]">{sub.date}</td>
+                            <td className="p-3">
+                              <span className="inline-flex items-center gap-1 text-[11px] text-[#98a892]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#98a892]" />
+                                {sub.status === 'active' ? 'Aktiv' : sub.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
 
-                <div>
-                  <label className="block text-[11px] font-mono text-[#a8a29e] mb-1">
-                    Titel
-                  </label>
-                  <input
-                    type="text"
-                    value={draftTitle}
-                    onChange={(e) => setDraftTitle(e.target.value)}
-                    placeholder="F.eks. Llama 3 på M4 Max..."
-                    required
-                    className="w-full px-3 py-2 rounded-xl bg-[#141211] border border-white/10 text-xs text-[#f5f2eb] placeholder-[#a8a29e]/40 focus:outline-none focus:border-[#c26d48]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-mono text-[#a8a29e] mb-1">
-                      Kategori
-                    </label>
-                    <select
-                      value={draftCategory}
-                      onChange={(e) => setDraftCategory(e.target.value as any)}
-                      className="w-full px-3 py-2 rounded-xl bg-[#141211] border border-white/10 text-xs text-[#f5f2eb] focus:outline-none focus:border-[#c26d48]"
-                    >
-                      <option value="On-Device AI">On-Device AI</option>
-                      <option value="Hardware">Hardware</option>
-                      <option value="Arkitektur">Arkitektur</option>
-                      <option value="Essays">Essays</option>
-                      <option value="Filosofi">Filosofi</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-mono text-[#a8a29e] mb-1">
-                      Hardware Profil
-                    </label>
+                  {/* Add subscriber manually */}
+                  <form onSubmit={handleAddSub} className="flex gap-2 pt-1">
                     <input
-                      type="text"
-                      value={draftHardware}
-                      onChange={(e) => setDraftHardware(e.target.value)}
-                      placeholder="M4 Pro • 48GB"
-                      className="w-full px-3 py-2 rounded-xl bg-[#141211] border border-white/10 text-xs text-[#f5f2eb] focus:outline-none focus:border-[#c26d48]"
+                      type="email"
+                      value={newSubEmail}
+                      onChange={(e) => setNewSubEmail(e.target.value)}
+                      placeholder="Tilføj ny e-mailadresse..."
+                      className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#1e1a17] border border-white/10 text-xs text-[#f5f2eb] placeholder-[#a8a29e]/50 focus:outline-none focus:border-[#98a892]"
                     />
-                  </div>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl bg-[#ece7dc] hover:bg-[#ded8cc] text-[#1e1a17] font-medium text-xs transition-colors cursor-pointer"
+                    >
+                      Tilføj Abonnent
+                    </button>
+                  </form>
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-[#a8a29e] mb-1">
-                    Teaser / Uddrag
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={draftExcerpt}
-                    onChange={(e) => setDraftExcerpt(e.target.value)}
-                    placeholder="Kort introducerende resumé..."
-                    className="w-full px-3 py-2 rounded-xl bg-[#141211] border border-white/10 text-xs text-[#f5f2eb] placeholder-[#a8a29e]/40 focus:outline-none focus:border-[#c26d48]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-[#a8a29e] mb-1">
-                    Brødtekst (Markdown)
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={draftContent}
-                    onChange={(e) => setDraftContent(e.target.value)}
-                    placeholder="Her starter selve artiklen skrevet i rå Markdown..."
-                    className="w-full px-3 py-2 rounded-xl bg-[#141211] border border-white/10 text-xs text-[#f5f2eb] placeholder-[#a8a29e]/40 focus:outline-none focus:border-[#c26d48] font-mono"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#c26d48] hover:bg-[#a85936] text-white text-xs font-medium transition-colors cursor-pointer"
-                >
-                  Gem & Publicer Lokalt
-                </button>
-              </form>
-            )}
-
-            {/* TAB CONTENT: ZERO-CLOUD STATUS */}
-            {studioTab === 'system' && (
-              <div className="space-y-3 text-xs text-[#a8a29e]">
-                <div className="p-4 rounded-xl bg-[#141211] border border-white/5 space-y-2">
-                  <div className="flex items-center justify-between text-[#f5f2eb]">
-                    <span className="font-mono text-[11px]">Hjælpeservice</span>
-                    <span className="text-[#10b981] font-mono text-[11px]">KØRER LOKALT (PORT 3000)</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>E-mail udbyder</span>
-                    <span className="font-mono text-[#f5f2eb]">Resend SMTP (Zero-Cloud)</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Datamappe</span>
-                    <span className="font-mono text-[#c26d48]">/content/posts/</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Kvantisering i hukommelse</span>
-                    <span className="font-mono text-[#f5f2eb]">MLX Q4_K_M (38 tok/s)</span>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-[#a8a29e]/70 leading-relaxed">
-                  Alle ændringer gemmes direkte til disk. Ingen tredjeparts sky-databaser eller eksterne analysekoder er aktive på sitet.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </motion.div>

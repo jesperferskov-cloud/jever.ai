@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { motion, Variants } from 'motion/react';
-import { Mail, Check, ShieldCheck, Cpu, Sparkles } from 'lucide-react';
+import { motion } from 'motion/react';
+import { X, Cpu, ShieldCheck, Sparkles, Check } from 'lucide-react';
+import { TranslationStrings } from '../types/translations';
 
 interface AboutCardProps {
+  onClose?: () => void;
   onSubscribe?: (email: string) => void;
+  translations?: TranslationStrings;
 }
 
-export const AboutCard: React.FC<AboutCardProps> = ({ onSubscribe }) => {
+export const AboutCard: React.FC<AboutCardProps> = ({ onClose, onSubscribe, translations }) => {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -19,183 +22,178 @@ export const AboutCard: React.FC<AboutCardProps> = ({ onSubscribe }) => {
       setLoading(false);
       setSubscribed(true);
       if (onSubscribe) onSubscribe(email);
-    }, 400);
-  };
-
-  // Framer Motion Variants for the "Zen Reveal" entrance animation
-  const containerVariants: Variants = {
-    hidden: {
-      opacity: 0,
-      y: 32,
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.85,
-        ease: [0.16, 1, 0.3, 1], // Apple-style smooth decelerating curve
-        when: 'beforeChildren',
-        staggerChildren: 0.14,
-      },
-    },
-  };
-
-  const bioItemVariants: Variants = {
-    hidden: {
-      opacity: 0,
-      y: 14,
-      filter: 'blur(4px)',
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      filter: 'blur(0px)',
-      transition: {
-        duration: 0.75,
-        ease: [0.16, 1, 0.3, 1],
-      },
-    },
+    }, 350);
   };
 
   return (
-    <section id="om-bloggen" className="w-full py-16 scroll-mt-24">
-      {/* Zen Reveal Animated Card Frame */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: '-60px' }}
-        className="relative w-full rounded-3xl bg-[#1a1816] border border-[#2d2925] p-8 md:p-12 overflow-hidden shadow-2xl"
-      >
-        {/* Ambient Halo Glow */}
-        <div
-          className="absolute -top-32 -right-32 w-96 h-96 rounded-full pointer-events-none opacity-20 blur-3xl"
-          style={{ background: 'radial-gradient(circle, #8fa38d 0%, #10b981 40%, transparent 70%)' }}
-        />
-        <div
-          className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full pointer-events-none opacity-15 blur-3xl"
-          style={{ background: 'radial-gradient(circle, #c26d48 0%, transparent 70%)' }}
-        />
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 16 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: 16 }}
+      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+      className="relative w-full max-w-4xl bg-[#1e1a17] border border-white/10 rounded-3xl shadow-2xl p-6 sm:p-10 md:p-12 overflow-hidden my-auto"
+    >
+      {/* Ambient Lighting in warm sand & terracotta (5-8% opacity) - NO neon green */}
+      <div
+        className="absolute -top-32 -right-32 w-96 h-96 rounded-full pointer-events-none opacity-[0.07] blur-3xl"
+        style={{ background: 'radial-gradient(circle, #e5cc9c 0%, transparent 70%)' }}
+      />
+      <div
+        className="absolute -bottom-28 -left-28 w-96 h-96 rounded-full pointer-events-none opacity-[0.06] blur-3xl"
+        style={{ background: 'radial-gradient(circle, #c98a75 0%, transparent 70%)' }}
+      />
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-          {/* Left Column: Author Badge & Hardware Status */}
-          <div className="lg:col-span-5 flex flex-col justify-between space-y-6">
-            <div>
-              {/* Pulsing Emerald Dot */}
-              <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-[#141211] border border-white/10 text-xs font-mono text-[#a8a29e] mb-5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]" />
-                </span>
-                <span className="text-[#f5f2eb]">Aktiv på M4 Pro</span>
-                <span className="text-[#a8a29e]/50">·</span>
-                <span className="text-[#8fa38d]">Lokal inferens</span>
-              </div>
+      {/* Floating Circular Pill Close Button (Top-Right) */}
+      {onClose && (
+        <button
+          onClick={onClose}
+          aria-label="Luk"
+          className="absolute top-5 sm:top-7 right-5 sm:right-7 z-30 w-10 h-10 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-[#f5f2eb] flex items-center justify-center transition-all duration-200 cursor-pointer active:scale-95"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
 
-              <h2 className="font-serif text-3xl md:text-4xl text-[#f5f2eb] font-normal tracking-tight leading-tight">
-                Bag om Tidsskriftet
-              </h2>
-              <p className="font-mono text-xs uppercase tracking-widest text-[#c26d48] mt-2">
-                Jesper Ferskov · Autodidakt Udvikler
-              </p>
+      {/* Header & Status Section */}
+      <div className="relative z-10 mb-8 sm:mb-10 max-w-2xl pr-12">
+        {/* Status Badge: Soft pill with muted sage (#98a892) dot */}
+        <div className="inline-flex items-center gap-2.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-[#98a892] mb-4">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#98a892] opacity-40" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#98a892]" />
+          </span>
+          <span className="text-[#f5f2eb] font-medium font-sans">Aktiv på M4 Pro</span>
+          <span className="text-white/20">·</span>
+          <span className="text-[#98a892] font-sans">Lokal inferens</span>
+        </div>
+
+        {/* Main Heading: Editorial Serif font with soft curves */}
+        <h2 className="font-serif text-3xl sm:text-4xl md:text-[42px] text-[#f5f2eb] font-normal tracking-tight leading-[1.15]">
+          Bag om Tidsskriftet
+        </h2>
+
+        {/* Sub-meta line: Uppercase tracked sans-serif in muted terracotta accent */}
+        <p className="font-sans text-xs uppercase tracking-widest text-[#c98a75] font-semibold mt-2.5">
+          JESPER FERSKOV · AUTODIDAKT UDVIKLER
+        </p>
+      </div>
+
+      {/* Two-Column Bento Layout */}
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+        {/* Left Column: Left Metadata Bento Card */}
+        <div className="lg:col-span-5 flex flex-col gap-5">
+          <div className="bg-[#1c1815] border border-white/10 rounded-2xl p-5 space-y-4">
+            {/* Arkitektur */}
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-2 text-[#b8b1a9]">
+                <Cpu className="w-3.5 h-3.5 text-[#c98a75]" />
+                <span>Arkitektur</span>
+              </span>
+              <span className="text-[#f5f2eb] font-medium font-sans">
+                Apple Silicon UMA
+              </span>
             </div>
 
-            {/* Spec Box */}
-            <div className="p-4 rounded-2xl bg-[#141211]/90 border border-white/5 space-y-2.5 text-xs">
-              <div className="flex items-center justify-between text-[#a8a29e]">
-                <span className="flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-[#c26d48]" />
-                  Arkitektur
-                </span>
-                <span className="font-mono text-[#f5f2eb]">Apple Silicon UMA</span>
-              </div>
-              <div className="flex items-center justify-between text-[#a8a29e]">
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#8fa38d]" />
-                  Privacy Princip
-                </span>
-                <span className="font-mono text-[#f5f2eb]">Zero-Cloud / No Trackers</span>
-              </div>
-              <div className="flex items-center justify-between text-[#a8a29e]">
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#e6dfd5]" />
-                  Format
-                </span>
-                <span className="font-mono text-[#f5f2eb]">Ren Markdown & Static</span>
-              </div>
+            <div className="h-[1px] w-full bg-white/5" />
+
+            {/* Privacy Princip */}
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-2 text-[#b8b1a9]">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#98a892]" />
+                <span>Privacy Princip</span>
+              </span>
+              <span className="text-[#f5f2eb] font-medium font-sans">
+                Zero-Cloud / No Trackers
+              </span>
+            </div>
+
+            <div className="h-[1px] w-full bg-white/5" />
+
+            {/* Format */}
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-2 text-[#b8b1a9]">
+                <Sparkles className="w-3.5 h-3.5 text-[#e5cc9c]" />
+                <span>Format</span>
+              </span>
+              <span className="text-[#f5f2eb] font-medium font-sans">
+                Ren Markdown &amp; Static
+              </span>
             </div>
           </div>
 
-          {/* Right Column: Mask-revealed Staggered Bio Prose */}
-          <div className="lg:col-span-7 flex flex-col justify-between space-y-6 lg:border-l lg:border-[#2d2925] lg:pl-10">
-            <div className="space-y-4">
-              <motion.p
-                variants={bioItemVariants}
-                className="text-base sm:text-lg text-[#f5f2eb] leading-relaxed font-light"
-              >
-                Jeg byggede <span className="font-serif italic text-[#c26d48]">jever</span> som en modvægt til nutidens overstimulerede internet. Dette er et personligt digitalt værksted, hvor nysgerrigheden over for lokal kunstig intelligens og æstetisk softwarearkitektur kan folde sig ud i ro.
-              </motion.p>
-
-              <motion.p
-                variants={bioItemVariants}
-                className="text-sm sm:text-base text-[#a8a29e] leading-relaxed"
-              >
-                Efter mange år med cloud-baserede services, abonnementer og uigennemskuelige dataindsamlinger har jeg valgt at trække stikket til skyen. Hvert eneste ord, hver modelkørsel og hver linje kode på denne side er skabt til at kunne eksistere 100% uafhængigt på min egen maskine.
-              </motion.p>
-
-              <motion.p
-                variants={bioItemVariants}
-                className="text-sm sm:text-base text-[#a8a29e] leading-relaxed"
-              >
-                Her finder du ingen pop-ups, ingen cookie-advarsler og ingen overvågning. Kun håndskrevne essays om hardwarens grænser, modelkvantisering og kunsten at tænke i takt med maskinens rytme.
-              </motion.p>
-            </div>
-
-            {/* Zero-Cloud Newsletter Subscription Module */}
-            <motion.div
-              variants={bioItemVariants}
-              className="pt-4 border-t border-[#2d2925]"
-            >
-              <div className="mb-3">
-                <span className="text-xs uppercase font-mono tracking-wider text-[#f5f2eb] block">
-                  Zero-Cloud Notifikationer
-                </span>
-                <span className="text-xs text-[#a8a29e]">
-                  Modtag et diskret brev, når et nyt essay publiceres. Gemmes lokalt i <code className="font-mono text-[#c26d48]">subscribers.json</code> uden tredjepart.
-                </span>
-              </div>
-
-              {subscribed ? (
-                <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#10b981]/10 border border-[#10b981]/30 text-xs text-[#10b981]">
-                  <Check className="w-4 h-4" />
-                  <span>Du er tilmeldt den lokale notifikationsliste. Tak for din tillid.</span>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5 max-w-md">
-                  <div className="relative flex-1">
-                    <Mail className="w-4 h-4 text-[#a8a29e] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="din.adresse@proton.me"
-                      required
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#141211] border border-white/10 text-xs text-[#f5f2eb] placeholder-[#a8a29e]/50 focus:outline-none focus:border-[#c26d48] transition-colors"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-5 py-2.5 rounded-xl bg-[#24211e] hover:bg-[#2d2925] border border-white/10 hover:border-[#c26d48]/40 text-xs font-medium text-[#f5f2eb] transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    {loading ? 'Gemmer...' : 'Tilmeld lokalt'}
-                  </button>
-                </form>
-              )}
-            </motion.div>
+          {/* Tactile Mini Badge / Manifesto Note */}
+          <div className="p-4 rounded-2xl bg-[#25201c] border border-white/5 flex items-start gap-3 text-xs text-[#b8b1a9] leading-relaxed">
+            <span className="font-serif italic text-base text-[#e5cc9c] shrink-0 leading-none mt-0.5">
+              ∿
+            </span>
+            <span>
+              Skrevet og eksekveret on-device. Et sobert modstykke til skyens abonnementer og algoritmiske støj.
+            </span>
           </div>
         </div>
-      </motion.div>
-    </section>
+
+        {/* Right Column: Editorial Narrative & Newsletter Container */}
+        <div className="lg:col-span-7 flex flex-col gap-6">
+          {/* Editorial Body Text: Humanist sans-serif in #b8b1a9 with line-height 1.7 */}
+          <div className="space-y-4 font-sans text-sm sm:text-[15px] text-[#b8b1a9] leading-[1.7] font-normal">
+            <p>
+              Jeg byggede <span className="font-serif italic text-[#e5cc9c] font-medium">jever</span> som en modvægt til nutidens overstimulerede internet. Dette er et personligt digitalt værksted, hvor nysgerrigheden over for lokal kunstig intelligens og æstetisk softwarearkitektur kan folde sig ud i ro.
+            </p>
+
+            <p>
+              Efter mange år med cloud-baserede services, abonnementer og uigennemskuelige dataindsamlinger har jeg valgt at trække stikket til skyen. Hvert eneste ord, hver modelkørsel og hver linje kode på denne side er skabt til at kunne eksistere 100% uafhængigt på min egen maskine.
+            </p>
+
+            <p>
+              Her finder du ingen pop-ups, ingen cookie-advarsler og ingen overvågning. Kun håndskrevne essays om hardwarens grænser, modelkvantisering og kunsten at tænke i takt med maskinens rytme.
+            </p>
+          </div>
+
+          {/* Newsletter Box: Zero-Cloud Notifikationer */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-[#25201c] border border-white/10 mt-1">
+            <div className="mb-4">
+              <span className="text-xs uppercase font-sans tracking-widest text-[#f5f2eb] font-semibold block">
+                ZERO-CLOUD NOTIFIKATIONER
+              </span>
+              <span className="text-xs text-[#b8b1a9] leading-relaxed mt-1 block">
+                Modtag et diskret brev, når et nyt essay publiceres. Gemmes lokalt i{' '}
+                <code className="font-mono text-[#c98a75] px-1 py-0.5 rounded bg-white/5 text-[11px]">
+                  subscribers.json
+                </code>{' '}
+                uden tredjepart.
+              </span>
+            </div>
+
+            {subscribed ? (
+              <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#98a892]/15 border border-[#98a892]/30 text-xs text-[#98a892]">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>Du er tilmeldt den lokale notifikationsliste. Tak for din tillid.</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5">
+                <div className="relative flex-1">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="din.adresse@proton.me"
+                    required
+                    className="w-full rounded-full bg-white/5 border border-white/15 px-4 py-2.5 text-sm text-[#f5f2eb] placeholder:text-white/30 focus:border-[#e5cc9c] focus:outline-none transition-colors"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="rounded-full bg-[#ece7dc] hover:bg-[#f5f2eb] text-[#1e1a17] font-medium text-sm px-6 py-2.5 transition-all duration-200 active:scale-95 shadow-sm whitespace-nowrap cursor-pointer disabled:opacity-70"
+                >
+                  {loading ? 'Gemmer...' : 'Tilmeld lokalt'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 };
+
